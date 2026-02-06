@@ -42,18 +42,30 @@ class ExcelReader:
             # 使用pandas读取Excel文件
             if sheet_name is None:
                 # 读取所有工作表
-                excel_data = pd.read_excel(file_path, header=header, index_col=index_col)
+                excel_data = pd.read_excel(file_path, sheet_name=None, header=header, index_col=index_col)
                 result = {
                     'sheets': {},
-                    'total_sheets': len(excel_data.keys())
+                    'total_sheets': 1
                 }
                 
-                for sheet_name_key, data in excel_data.items():
-                    result['sheets'][sheet_name_key] = {
-                        'data': data.to_dict('records'),
-                        'columns': list(data.columns),
-                        'shape': data.shape,
-                        'sheet_name': sheet_name_key
+                # 处理返回的数据结构
+                if isinstance(excel_data, dict):
+                    # 多个工作表的情况
+                    result['total_sheets'] = len(excel_data)
+                    for sheet_name_key, data in excel_data.items():
+                        result['sheets'][sheet_name_key] = {
+                            'data': data.to_dict('records'),
+                            'columns': list(data.columns),
+                            'shape': data.shape,
+                            'sheet_name': sheet_name_key
+                        }
+                else:
+                    # 单个工作表的情况
+                    result['sheets']['Sheet1'] = {
+                        'data': excel_data.to_dict('records'),
+                        'columns': list(excel_data.columns),
+                        'shape': excel_data.shape,
+                        'sheet_name': 'Sheet1'
                     }
             else:
                 # 读取指定工作表
@@ -171,7 +183,7 @@ class ExcelReader:
         
         file_ext = os.path.splitext(file_path)[1].lower()
         if file_ext not in self.supported_formats:
-            return {'valid': False, 'error': f'不支持的文件格式: {file_ext}'}
+            raise ValueError(f'不支持的文件格式: {file_ext}')
         
         try:
             excel_file = pd.ExcelFile(file_path)
@@ -213,7 +225,7 @@ def main():
         validation_result = reader.validate_file(example_file)
         
         if validation_result['valid']:
-            print(f"✅ 文件验证成功")
+            print(f"[成功] 文件验证成功")
             print(f"   文件大小: {validation_result['file_size']} 字节")
             print(f"   工作表数量: {validation_result['total_sheets']}")
             print(f"   工作表名称: {validation_result['sheet_names']}")
@@ -245,10 +257,10 @@ def main():
                 print(f"     工作表: {result['sheet_name']}, 行: {result['row']}, 列: {result['column']}, 值: {result['value']}")
                 
         else:
-            print(f"❌ 文件验证失败: {validation_result['error']}")
+            print(f"[失败] 文件验证失败: {validation_result['error']}")
             
     except Exception as e:
-        print(f"❌ 错误: {str(e)}")
+        print(f"[失败] 错误: {str(e)}")
 
 
 if __name__ == "__main__":
